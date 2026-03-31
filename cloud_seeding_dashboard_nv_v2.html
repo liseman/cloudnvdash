@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cloud Seeding Dashboard</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121933;
+      --panel-2: #172146;
+      --text: #e8eefc;
+      --muted: #9fb0d9;
+      --good: #2ecc71;
+      --watch: #f1c40f;
+      --bad: #ff6b6b;
+      --accent: #6ea8fe;
+      --border: #28345f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      background: linear-gradient(180deg, #09101f 0%, #0c1430 100%);
+    }
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    h1, h2, h3, p { margin: 0; }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .subtitle { color: var(--muted); font-size: 14px; margin-top: 6px; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 14px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 16px;
+    }
+    .card {
+      grid-column: span 12;
+      background: rgba(18, 25, 51, 0.95);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.2);
+    }
+    @media (min-width: 860px) {
+      .span-4 { grid-column: span 4; }
+      .span-6 { grid-column: span 6; }
+      .span-8 { grid-column: span 8; }
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 14px;
+    }
+    @media (min-width: 620px) { .metrics { grid-template-columns: repeat(4, 1fr); } }
+    .metric {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+    }
+    .metric .label { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+    .metric .value { font-size: 24px; font-weight: 700; }
+    .score {
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    .pill {
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-weight: 700;
+      display: inline-block;
+    }
+    .good { background: rgba(46,204,113,.15); color: var(--good); border: 1px solid rgba(46,204,113,.35); }
+    .watch { background: rgba(241,196,15,.12); color: var(--watch); border: 1px solid rgba(241,196,15,.35); }
+    .bad { background: rgba(255,107,107,.12); color: var(--bad); border: 1px solid rgba(255,107,107,.35); }
+    .small { color: var(--muted); font-size: 13px; }
+    table {
+      width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px;
+    }
+    th, td {
+      padding: 10px 8px; text-align: left; border-bottom: 1px solid var(--border);
+    }
+    th { color: var(--muted); font-weight: 600; }
+    .reason-list { margin: 12px 0 0 0; padding-left: 18px; color: var(--muted); }
+    .reason-list li { margin: 4px 0; }
+    .footer { color: var(--muted); font-size: 12px; margin-top: 16px; line-height: 1.5; }
+    .spark {
+      width: 100%; height: 160px; background: var(--panel-2); border-radius: 14px; border: 1px solid var(--border); margin-top: 12px; position: relative;
+    }
+    .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; color: var(--muted); font-size: 12px; }
+    .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 999px; margin-right: 6px; vertical-align: middle; }
+    .temp::before { background: #6ea8fe; }
+    .cloud::before { background: #b8c7ee; }
+    .wind::before { background: #f1c40f; }
+    .forecast-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 12px; }
+    .day { background: var(--panel-2); border: 1px solid var(--border); border-radius: 14px; padding: 12px; }
+    .day .d { font-weight: 700; margin-bottom: 6px; }
+    .day .s { color: var(--muted); font-size: 13px; }
+    code { color: #cbe0ff; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1>Cloud Seeding Dashboard</h1>
+        <div class="subtitle">Pinned location: 40.189289, -118.057934 · Fallon area, Nevada · live weather + forecast</div>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a class="btn" href="https://maps.google.com/?q=40.189289,-118.057934" target="_blank" rel="noreferrer">Open map</a>
+        <button class="btn" id="refreshBtn">Refresh</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <section class="card span-4">
+        <h2>Current window</h2>
+        <div class="score">
+          <div id="statusPill" class="pill watch">Loading…</div>
+          <div>
+            <div style="font-size:34px; font-weight:800; line-height:1;" id="scoreValue">--</div>
+            <div class="small">seedability score / 100</div>
+          </div>
+        </div>
+        <ul class="reason-list" id="reasons"></ul>
+        <div class="footer">Heuristic score for screening only. Good seeding windows usually need cloud cover, cold air aloft, moisture, and moderate winds into terrain.</div>
+      </section>
+
+      <section class="card span-8">
+        <h2>Current conditions</h2>
+        <div class="metrics">
+          <div class="metric"><div class="label">Temperature</div><div class="value" id="tempNow">--</div></div>
+          <div class="metric"><div class="label">Humidity</div><div class="value" id="rhNow">--</div></div>
+          <div class="metric"><div class="label">Wind</div><div class="value" id="windNow">--</div></div>
+          <div class="metric"><div class="label">Cloud cover</div><div class="value" id="cloudNow">--</div></div>
+          <div class="metric"><div class="label">Freezing level</div><div class="value" id="freezeNow">--</div></div>
+          <div class="metric"><div class="label">850 hPa temp</div><div class="value" id="t850Now">--</div></div>
+          <div class="metric"><div class="label">Precipitation</div><div class="value" id="precipNow">--</div></div>
+          <div class="metric"><div class="label">Surface pressure</div><div class="value" id="pressureNow">--</div></div>
+        </div>
+      </section>
+
+      <section class="card span-6">
+        <h2>Next 12 hours</h2>
+        <div class="spark"><canvas id="hourlyCanvas" width="800" height="160" style="width:100%; height:160px;"></canvas></div>
+        <div class="legend"><span class="temp">Temp °C</span><span class="cloud">Cloud %</span><span class="wind">Wind km/h</span></div>
+      </section>
+
+      <section class="card span-6">
+        <h2>Best forecast windows</h2>
+        <table>
+          <thead>
+            <tr><th>Time</th><th>Score</th><th>Status</th><th>Notes</th></tr>
+          </thead>
+          <tbody id="bestWindows"></tbody>
+        </table>
+      </section>
+
+      <section class="card span-12">
+        <h2>7-day forecast</h2>
+        <div id="dailyGrid" class="forecast-grid"></div>
+        <div class="footer">Data source: Open-Meteo forecast API, requested live in your browser from this file using the pinned coordinates. Refresh updates current and forecast values.</div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const LAT = 40.18928910686101;
+    const LON = -118.05793411381089;
+    const TZ = 'America/Los_Angeles';
+
+    const weatherCodeMap = {
+      0: 'Clear', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast',
+      45: 'Fog', 48: 'Rime fog', 51: 'Light drizzle', 53: 'Drizzle', 55: 'Dense drizzle',
+      56: 'Freezing drizzle', 57: 'Dense freezing drizzle', 61: 'Slight rain', 63: 'Rain',
+      65: 'Heavy rain', 66: 'Freezing rain', 67: 'Heavy freezing rain', 71: 'Slight snow',
+      73: 'Snow', 75: 'Heavy snow', 77: 'Snow grains', 80: 'Rain showers', 81: 'Rain showers',
+      82: 'Violent rain showers', 85: 'Snow showers', 86: 'Heavy snow showers', 95: 'Thunderstorm',
+      96: 'Thunderstorm w/ hail', 99: 'Thunderstorm w/ heavy hail'
+    };
+
+    function fmtTemp(c) { return `${Math.round(c)}°C`; }
+    function fmtPct(v) { return `${Math.round(v)}%`; }
+    function fmtWind(v) { return `${Math.round(v)} km/h`; }
+    function fmtMm(v) { return `${(v ?? 0).toFixed(1)} mm`; }
+    function fmtPressure(v) { return `${Math.round(v)} hPa`; }
+    function fmtM(v) { return `${Math.round(v)} m`; }
+    function fmtDateTime(s) {
+      const d = new Date(s);
+      return d.toLocaleString([], { month:'short', day:'numeric', hour:'numeric' });
+    }
+    function fmtDay(s) {
+      const d = new Date(s);
+      return d.toLocaleDateString([], { weekday:'short', month:'short', day:'numeric' });
+    }
+
+    function scoreHour(h) {
+      let score = 0;
+      const reasons = [];
+
+      if (h.cloud_cover >= 70) { score += 20; reasons.push('thick cloud cover'); }
+      else if (h.cloud_cover >= 40) { score += 10; reasons.push('some cloud cover'); }
+      else reasons.push('limited cloud cover');
+
+      if (h.relative_humidity_2m >= 75) { score += 15; reasons.push('higher humidity'); }
+      else if (h.relative_humidity_2m >= 55) { score += 8; reasons.push('moderate humidity'); }
+      else reasons.push('dry air');
+
+      if (h.temperature_850hPa <= -5 && h.temperature_850hPa >= -15) { score += 25; reasons.push('850 hPa temp in good range'); }
+      else if (h.temperature_850hPa < -15) { score += 10; reasons.push('aloft very cold'); }
+      else reasons.push('aloft too warm');
+
+      if (h.freezing_level_height <= 2200) { score += 10; reasons.push('low freezing level'); }
+      else if (h.freezing_level_height <= 3000) { score += 5; reasons.push('moderate freezing level'); }
+      else reasons.push('high freezing level');
+
+      if (h.wind_speed_10m >= 10 && h.wind_speed_10m <= 35) { score += 15; reasons.push('usable winds'); }
+      else if (h.wind_speed_10m > 35 && h.wind_speed_10m <= 50) { score += 8; reasons.push('windy but workable'); }
+      else reasons.push('winds not ideal');
+
+      if ((h.precipitation_probability ?? 0) >= 30) { score += 10; reasons.push('some precip signal'); }
+      if ((h.precipitation ?? 0) > 0) { score += 5; reasons.push('active precip'); }
+
+      if (h.temperature_2m > 12) score -= 10;
+      if (h.cloud_cover < 25 && (h.precipitation_probability ?? 0) < 10) score -= 10;
+
+      score = Math.max(0, Math.min(100, Math.round(score)));
+      let status = 'NO-GO';
+      if (score >= 65) status = 'GO';
+      else if (score >= 40) status = 'WATCH';
+      return { score, status, reasons };
+    }
+
+    function setStatus(scoreObj) {
+      const pill = document.getElementById('statusPill');
+      pill.textContent = scoreObj.status;
+      pill.className = 'pill ' + (scoreObj.status === 'GO' ? 'good' : scoreObj.status === 'WATCH' ? 'watch' : 'bad');
+      document.getElementById('scoreValue').textContent = scoreObj.score;
+      document.getElementById('reasons').innerHTML = scoreObj.reasons.slice(0, 5).map(r => `<li>${r}</li>`).join('');
+    }
+
+    function drawHourlyChart(hours) {
+      const canvas = document.getElementById('hourlyCanvas');
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = '#172146';
+      ctx.fillRect(0, 0, w, h);
+
+      const pad = { l: 40, r: 10, t: 14, b: 24 };
+      const plotW = w - pad.l - pad.r;
+      const plotH = h - pad.t - pad.b;
+      const xs = hours.map((_, i) => pad.l + (plotW * i / Math.max(1, hours.length - 1)));
+      const tempMin = Math.min(...hours.map(v => v.temperature_2m));
+      const tempMax = Math.max(...hours.map(v => v.temperature_2m));
+      const windMax = Math.max(20, ...hours.map(v => v.wind_speed_10m));
+
+      function yTemp(v) {
+        const min = Math.floor(tempMin - 2), max = Math.ceil(tempMax + 2);
+        return pad.t + (1 - (v - min) / Math.max(1, max - min)) * plotH;
+      }
+      function yPct(v) { return pad.t + (1 - v / 100) * plotH; }
+      function yWind(v) { return pad.t + (1 - v / windMax) * plotH; }
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = pad.t + (plotH * i / 4);
+        ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+      }
+
+      function line(vals, yFn, color) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        vals.forEach((v, i) => {
+          const x = xs[i], y = yFn(v);
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      }
+      line(hours.map(v => v.temperature_2m), yTemp, '#6ea8fe');
+      line(hours.map(v => v.cloud_cover), yPct, '#b8c7ee');
+      line(hours.map(v => v.wind_speed_10m), yWind, '#f1c40f');
+
+      ctx.fillStyle = '#9fb0d9';
+      ctx.font = '12px sans-serif';
+      hours.forEach((v, i) => {
+        const x = xs[i];
+        const label = new Date(v.time).toLocaleTimeString([], { hour:'numeric' });
+        ctx.fillText(label, x - 10, h - 8);
+      });
+    }
+
+    async function load() {
+      document.getElementById('statusPill').textContent = 'Loading…';
+      const url = new URL('https://api.open-meteo.com/v1/forecast');
+      url.searchParams.set('latitude', LAT);
+      url.searchParams.set('longitude', LON);
+      url.searchParams.set('timezone', TZ);
+      url.searchParams.set('forecast_days', '7');
+      url.searchParams.set('temperature_unit', 'celsius');
+      url.searchParams.set('wind_speed_unit', 'kmh');
+      url.searchParams.set('precipitation_unit', 'mm');
+      url.searchParams.set('current', [
+        'temperature_2m','relative_humidity_2m','precipitation','cloud_cover','wind_speed_10m',
+        'surface_pressure','freezing_level_height','weather_code'
+      ].join(','));
+      url.searchParams.set('hourly', [
+        'temperature_2m','relative_humidity_2m','precipitation_probability','precipitation','cloud_cover',
+        'wind_speed_10m','surface_pressure','freezing_level_height','temperature_850hPa','weather_code'
+      ].join(','));
+      url.searchParams.set('daily', [
+        'weather_code','temperature_2m_max','temperature_2m_min','precipitation_probability_max',
+        'precipitation_sum','wind_speed_10m_max'
+      ].join(','));
+
+      const res = await fetch(url.toString(), { cache: 'no-store' });
+      const data = await res.json();
+
+      const currentTime = data.current.time;
+      const idx = data.hourly.time.findIndex(t => t === currentTime);
+      const pickHour = i => ({
+        time: data.hourly.time[i],
+        temperature_2m: data.hourly.temperature_2m[i],
+        relative_humidity_2m: data.hourly.relative_humidity_2m[i],
+        precipitation_probability: data.hourly.precipitation_probability[i],
+        precipitation: data.hourly.precipitation[i],
+        cloud_cover: data.hourly.cloud_cover[i],
+        wind_speed_10m: data.hourly.wind_speed_10m[i],
+        surface_pressure: data.hourly.surface_pressure[i],
+        freezing_level_height: data.hourly.freezing_level_height[i],
+        temperature_850hPa: data.hourly.temperature_850hPa[i],
+        weather_code: data.hourly.weather_code[i]
+      });
+
+      const nowHour = pickHour(Math.max(0, idx));
+      const nowScore = scoreHour(nowHour);
+      setStatus(nowScore);
+
+      document.getElementById('tempNow').textContent = fmtTemp(data.current.temperature_2m);
+      document.getElementById('rhNow').textContent = fmtPct(data.current.relative_humidity_2m);
+      document.getElementById('windNow').textContent = fmtWind(data.current.wind_speed_10m);
+      document.getElementById('cloudNow').textContent = fmtPct(data.current.cloud_cover);
+      document.getElementById('freezeNow').textContent = fmtM(data.current.freezing_level_height);
+      document.getElementById('t850Now').textContent = fmtTemp(nowHour.temperature_850hPa);
+      document.getElementById('precipNow').textContent = fmtMm(data.current.precipitation);
+      document.getElementById('pressureNow').textContent = fmtPressure(data.current.surface_pressure);
+
+      const next12 = [];
+      for (let i = idx; i < Math.min(idx + 12, data.hourly.time.length); i++) next12.push(pickHour(i));
+      drawHourlyChart(next12);
+
+      const windows = [];
+      for (let i = idx; i < Math.min(idx + 48, data.hourly.time.length); i++) {
+        const h = pickHour(i);
+        const s = scoreHour(h);
+        windows.push({ ...h, ...s });
+      }
+      windows.sort((a, b) => b.score - a.score);
+      document.getElementById('bestWindows').innerHTML = windows.slice(0, 6).map(w => {
+        const cls = w.status === 'GO' ? 'good' : w.status === 'WATCH' ? 'watch' : 'bad';
+        return `<tr>
+          <td>${fmtDateTime(w.time)}</td>
+          <td>${w.score}</td>
+          <td><span class="pill ${cls}">${w.status}</span></td>
+          <td>${w.reasons.slice(0,2).join(', ')}</td>
+        </tr>`;
+      }).join('');
+
+      const daily = data.daily.time.map((t, i) => ({
+        time: t,
+        weather_code: data.daily.weather_code[i],
+        tmax: data.daily.temperature_2m_max[i],
+        tmin: data.daily.temperature_2m_min[i],
+        pprob: data.daily.precipitation_probability_max[i],
+        psum: data.daily.precipitation_sum[i],
+        wind: data.daily.wind_speed_10m_max[i]
+      }));
+      document.getElementById('dailyGrid').innerHTML = daily.map(d => {
+        const dayHours = data.hourly.time.map((t, i) => ({ i, t })).filter(x => x.t.startsWith(d.time));
+        const best = Math.max(...dayHours.map(x => scoreHour(pickHour(x.i)).score));
+        const label = best >= 65 ? 'GO' : best >= 40 ? 'WATCH' : 'NO-GO';
+        const cls = label === 'GO' ? 'good' : label === 'WATCH' ? 'watch' : 'bad';
+        return `<div class="day">
+          <div class="d">${fmtDay(d.time)}</div>
+          <div class="s">${weatherCodeMap[d.weather_code] || 'Weather'}</div>
+          <div style="margin-top:8px; font-size:22px; font-weight:700;">${Math.round(d.tmax)}° / ${Math.round(d.tmin)}°</div>
+          <div class="s" style="margin-top:6px;">Precip: ${d.psum.toFixed(1)} mm · Prob: ${Math.round(d.pprob)}%</div>
+          <div class="s">Max wind: ${Math.round(d.wind)} km/h</div>
+          <div style="margin-top:10px;"><span class="pill ${cls}">${label} · best ${best}</span></div>
+        </div>`;
+      }).join('');
+    }
+
+    document.getElementById('refreshBtn').addEventListener('click', load);
+    load().catch(err => {
+      document.getElementById('statusPill').textContent = 'Load failed';
+      document.getElementById('statusPill').className = 'pill bad';
+      document.getElementById('reasons').innerHTML = `<li>${String(err)}</li><li>If you opened this locally and it cannot fetch, try serving it from a simple local web server.</li>`;
+    });
+  </script>
+</body>
+</html>
